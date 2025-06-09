@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  
+  <meta charset="UTF-8" />
+   <div style="text-align: center; font-size: 14px; color: #444; margin-bottom: -25px;">
+    -- P o n d o k  B a n t a n   Z e r o   W a s t e -
+   </div>
+  <title>ระบบสะสมพ้อยต์ทิ้งขยะ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background-color: #f0f4f8;
+      color: #333;
+      margin: 0;
+      font-size: 15px;
+      padding: 19px;
+    }
+    h1 {
+      font-family: 'Prompt';
+      text-align: center;
+      color: #00695c;
+      font-size: 40px;
+      margin-top: 40px;
+      margin-bottom: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #a9afd7;
+      text-align: center;
+    }
+    th {
+      background-color: #009688;
+      color: white;
+    }
+    .log-button {
+      font-family: 'Prompt';
+      background-color: #7dac9a;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 100px;
+      cursor: pointer;
+    }
+    .log-button:hover {
+      background-color: #5c877a;
+    }
+    .popup {
+      background: white;
+      border: 2px solid #009688;
+      padding: 20px;
+      width: 300px;
+      position: fixed;
+      border-radius: 10px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0px 5px 15px rgba(0,0,0,0.2);
+      display: none;
+      z-index: 1000;
+    }
+    .popup h2 {
+      margin-top: 0;
+      color: #00695c;
+      font-size: 20px;
+    }
+    .popup input, .popup select {
+      width: 70%;
+      margin: 7px 0;
+      padding: 7px;
+      font-size: 14px;
+    }
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      z-index: 500;
+    }
+    .center {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🌿ระบบสะสมพ้อยต์ทิ้งขยะของนักเรียน</h1>
+
+  <div class="center">
+    
+<button id="resetButton" class="log-button" style="
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  background-color: #e53935;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+  z-index: 2000;
+  font-size: 10px;
+">ล้าง</button>
+
+    <button class="log-button" onclick="showEntryPopup()">+ เพิ่มข้อมูลเอง</button>
+    <button class="log-button" onclick="window.open('graph.html')">📊 ดูกราฟคะแนน</button>
+ 
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ชื่อ</th>
+        <th>รหัสนักเรียน</th>
+        <th>ประเภทขยะล่าสุด</th>
+        <th>จำนวน</th>
+        <th>คะแนนสะสม</th>
+        <th>ประวัติ</th>
+      </tr>
+    </thead>
+    <tbody id="student-table"></tbody>
+  </table>
+
+  <div id="overlay"></div>
+
+  
+  <div id="popup" class="popup">
+    <h2>ประวัติการทิ้งขยะ</h2>
+    <ul id="logList"></ul>
+    <button class="log-button" onclick="closePopup()">X</button>
+  </div>
+
+  <div id="entryPopup" class="popup">
+    <h2>เพิ่มข้อมูลการทิ้งขยะ</h2>
+    <input type="text" id="studentIdInput" placeholder="รหัสนักเรียน">
+    <select id="wasteTypeInput">
+      <option value="">-- เลือกประเภทขยะ --</option>
+      <option value="ขวดพลาสติก">ขวดพลาสติก</option>
+      <option value="พลาสติกอื่นๆ">พลาสติกอื่นๆ</option>
+      <option value="ขยะอื่นๆ">ขยะอื่นๆ</option>
+      <option value="เพิ่มคะแนน">+คะแนน</option>
+      <option value="หักคะแนน">-คะแนน</option>
+
+    </select>
+    <input type="number" id="quantityInput" placeholder="จำนวน">
+     <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+    <button class="log-button" onclick="submitEntry()">บันทึก</button>
+    <button class="log-button" onclick="closePopup()">X</button>
+  </div>
+  </div>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+ <script>
+    const firebaseConfig = {
+       apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "SENDER_ID",
+  appId: "APP_ID"
+    };
+
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+db.ref("test").set({
+  hello: "world"
+});
+
+  let students = {};
+
+  
+  async function loadStudents() {
+    try {
+      const response = await fetch('students.json'); 
+      const data = await response.json();
+      
+      data.forEach(s => {
+        
+        students[String(s.id)] = s.name.trim();
+      });
+    } catch (error) {
+      console.error("โหลด students.json ไม่ได้", error);
+    }
+  }
+
+  const scoreMap = {
+    "ขวดพลาสติก": 5,
+    "พลาสติกอื่นๆ": 3,
+    "ขยะอื่นๆ": 1,
+    "เพิ่มคะแนน": 1,
+    "หักคะแนน": -1
+  };
+  
+document.getElementById("resetButton").addEventListener("click", () => {
+ 
+  if (!confirm("🚨 ระวัง! คุณกำลังจะล้างข้อมูลทั้งหมด! คุณแน่ใจไหม?")) return;
+
+  
+  const pass = prompt("กรุณาใส่รหัสผ่าน เพื่อยืนยันการรีเซ็ตข้อมูล:");
+  const correctPass = "zerowaste80280";  
+
+  if (pass !== correctPass) {
+    alert("รหัสผ่านไม่ถูกต้อง! ยกเลิกการรีเซ็ตข้อมูล.");
+    return;
+  }
+
+  if (confirm("ยืนยันครั้งสุดท้าย! คุณแน่ใจจริงๆ ว่าจะรีเซ็ต?")) {
+    localStorage.removeItem("logs");
+    logs = {};
+    renderTable();
+    alert("🚀 รีเซ็ตข้อมูลสำเร็จ! ข้อมูลสะอาดเหมือนเพิ่งเกิดใหม่!");
+  }
+});
+
+  let logs = JSON.parse(localStorage.getItem("logs")) || {};
+
+  function saveLogs() {
+    localStorage.setItem("logs", JSON.stringify(logs));
+  }
+
+ 
+  function renderTable() {
+    const table = document.getElementById("student-table");
+    table.innerHTML = "";
+    for (const studentId in logs) {
+      const entries = logs[studentId];
+      const filteredEntries = entries.filter(e => e.type); 
+      if (filteredEntries.length === 0) continue;
+      const totalScore = filteredEntries.reduce((sum, e) => sum + (e.quantity * (scoreMap[e.type] || 1)), 0);
+      const lastEntry = filteredEntries[filteredEntries.length - 1];
+
+      const name = students[studentId] || (logs[studentId].name || "ยังไม่ระบุ");
+
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td contenteditable onblur="updateName('${studentId}', this.innerText.trim())">${name}</td>
+        <td>${studentId}</td>
+        <td>${lastEntry.type}</td>
+        <td>${lastEntry.quantity}</td>
+        <td>${totalScore}</td>
+        <td><button class="log-button" onclick="showLogs('${studentId}')">ดู</button></td>
+      `;
+      table.appendChild(row);
+    }
+  }
+
+  function updateName(studentId, newName) {
+    if (!logs[studentId]) return;
+    logs[studentId].name = newName || "ยังไม่ระบุ";
+    saveLogs();
+  }
+
+  function showLogs(studentId) {
+    const logList = document.getElementById("logList");
+    logList.innerHTML = "";
+    logs[studentId].forEach(log => {
+      const li = document.createElement("li");
+      const score = scoreMap[log.type] || 1;
+      li.textContent = `${log.type} - ${log.quantity} ชิ้น (${log.quantity * score} คะแนน) - ${log.time}`;
+      logList.appendChild(li);
+    });
+    document.getElementById("popup").style.display = "block";
+    document.getElementById("overlay").style.display = "block";
+  }
+
+  function closePopup() {
+    document.getElementById("popup").style.display = "none";
+    document.getElementById("entryPopup").style.display = "none";
+    document.getElementById("overlay").style.display = "none";
+  }
+
+  function showEntryPopup() {
+    document.getElementById("entryPopup").style.display = "block";
+    document.getElementById("overlay").style.display = "block";
+  } 
+
+  function submitEntry() {
+    const studentId = document.getElementById("studentIdInput").value.trim();
+    const type = document.getElementById("wasteTypeInput").value;
+    const quantity = parseInt(document.getElementById("quantityInput").value);
+
+    if (!studentId || !type || isNaN(quantity) || quantity <= 0) {
+      alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+      return;
+    }
+
+    if (!logs[studentId]) logs[studentId] = [];
+    logs[studentId].push({
+      type,
+      quantity,
+      time: new Date().toLocaleString("th-TH")
+    });
+
+    saveLogs();
+    renderTable();
+    closePopup();
+
+    document.getElementById("studentIdInput").value = "";
+    document.getElementById("wasteTypeInput").value = "";
+    document.getElementById("quantityInput").value = "";
+  }
+
+  loadStudents().then(() => {
+    renderTable();
+  });
+
+</script>
+</body>
+</html>

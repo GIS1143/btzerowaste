@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>กราฟคะแนน</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+      margin:35px;
+      background-color: #fdfdfd;
+      color: #333;
+      padding : auto;
+      
+    }
+    h2 {
+      font-family: 'prompt';
+      text-align: center;
+      color: #00796b;
+      font-size: 35px;
+    }
+    .quote {
+      font-family: 'Prompt';
+      text-align: center;
+      font-size: 14px;
+      color: #444;
+      margin-bottom: 12px;
+    }
+    canvas {
+      max-width: 2500px;
+      margin: auto;
+      display: block;
+    }
+    .summary {font-family: 'Prompt';
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 20px;
+      background-color: #e3e9eb;
+      border-radius: 20px;
+      box-shadow: 0 0 10px rgba(50, 65, 113, 0.381);
+    }
+    .summary h3 {
+      margin-top: 0;
+      color: #566c87;
+      font-size: 16px;
+      padding: 2px;
+    }
+    ul {
+      list-style-type: none;
+      padding-left: 0;
+      color: #475260;
+      font-size: 15px;
+      padding: 2px;
+    }
+    li {
+      margin: 3px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="quote">
+    "1 ขวดพลาสติก ใช้เวลาย่อยสลาย 450 ปี — แต่ 1 การตัดสินใจทิ้งให้ถูกที่ ใช้เวลาไม่ถึง 5 วินาที"
+  </div>
+  <h2>📊 กราฟคะแนนสะสมของนักเรียน</h2>
+  <canvas id="scoreChart"></canvas>
+
+  <div class="summary" id="summaryBox"></div>
+
+  <script>
+     fetch("students.json")
+      .then(res => res.json())
+      .then(data => {
+        const nameMap = {};
+        
+        data.forEach(s => nameMap[s.id] = s.name);
+        
+    const scoreMap = {
+      "ขวดพลาสติก": 5,
+      "พลาสติกอื่นๆ": 3,
+      "ขยะอื่นๆ": 1,
+      "เพิ่มคะแนน": 1,
+      "หักคะแนน": -1
+    };
+
+    const logs = JSON.parse(localStorage.getItem("logs")) || {};
+    const studentScores = [];
+    const wasteTypeCounts = {
+      "ขวดพลาสติก": 0,
+      "พลาสติกอื่นๆ": 0,
+      "ขยะอื่นๆ": 0
+    };
+    let totalWasteItems = 0;
+
+    for (const studentId in logs) {
+      let score = 0;
+      logs[studentId].forEach(log => {
+        const qty = Number(log.quantity) || 0;
+        const point = scoreMap[log.type] || 0;
+        score += qty * point;
+
+        
+        if (log.type !== "หักคะแนน"&&log.type !== "เพิ่มคะแนน") {
+          wasteTypeCounts[log.type] = (wasteTypeCounts[log.type] || 0) + qty;
+          totalWasteItems += qty;
+        }
+      });
+      studentScores.push({ studentId, total: score });
+    }
+    
+    studentScores.sort((a, b) => b.total - a.total);
+
+    const labels = studentScores.map(e => e.studentId);
+    const scores = studentScores.map(e => e.total);
+    
+    const scoreChart = new Chart(document.getElementById("scoreChart"), {
+     
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "คะแนนสะสม",
+          data: scores,
+          backgroundColor: "rgba(77, 182, 172, 0.7)",
+          borderColor: "#00796b",
+          borderWidth: 1,
+          
+          
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: {
+            callbacks: { 
+              label: ctx => `คะแนน : ${ctx.parsed.y} แต้ม  `
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: "คะแนน"
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: "รหัสนักเรียน"
+            }
+          }
+        }
+      }
+    });
+
+    const summaryBox = document.getElementById("summaryBox");
+
+   
+        const top3 = studentScores.slice(0, 3).map((e, i) => {
+          const name = nameMap[e.studentId] || "someone";
+          return `<li>อันดับ ${i + 1}&nbsp;: &nbsp;<strong>${name}</strong> &nbsp;(${e.studentId}) — ${e.total} แต้ม</li>`;
+        }).join("");
+
+        const percentList = Object.entries(wasteTypeCounts).map(([type, count]) => {
+          const percent = ((count / totalWasteItems) * 100).toFixed(1);
+          return `<li>${type}&nbsp;:&nbsp; ${count}&nbsp; ชิ้น (${percent}%)</li>`;
+        }).join("");
+
+        summaryBox.innerHTML = `
+          <h3>🎖️  อันดับ 1-3 &nbsp;. &nbsp;.&nbsp; . &nbsp;.&nbsp; 🐢: “เธอคือฮีโร่ของโลกใต้ทะเลนะ!” </h3>   
+          <ul>${top3}</ul>
+          
+          <h3>♻️ สัดส่วนขยะ</h3>
+          <ul>${percentList}</ul>
+          <h3>🧾 ปริมาณขยะรวม&nbsp;: &nbsp;${totalWasteItems} &nbsp;ชิ้น</h3>
+        `;
+      });
+  </script>
+</body>
+</html>
